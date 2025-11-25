@@ -6,6 +6,7 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 import { Order } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { CartService } from '../cart/cart.service';
+import { AppLoggerService } from '../common/app-logger.service';
 
 @Injectable()
 export class OrdersService {
@@ -15,6 +16,7 @@ export class OrdersService {
     @InjectRepository(OrderItem)
     private orderItemRepository: Repository<OrderItem>,
     private readonly cartService: CartService,
+    private readonly logger: AppLoggerService,
   ) {}
 
   async create(createOrderDto: CreateOrderDto): Promise<Order> {
@@ -27,6 +29,19 @@ export class OrdersService {
       0,
     );
 
+    const roundedSubtotal = Math.round(subtotal * 100) / 100;
+
+    this.logger.logWithData(
+      `Order creation started: customer=${createOrderDto.customerName}, items=${createOrderDto.items.length}, subtotal=$${roundedSubtotal}`,
+      {
+        orderId,
+        customerName: createOrderDto.customerName,
+        itemCount: createOrderDto.items.length,
+        subtotal: roundedSubtotal,
+      },
+      'OrdersService',
+    );
+
     // Create Order entity with items
     const order = this.orderRepository.create({
       orderId,
@@ -36,7 +51,7 @@ export class OrdersService {
       state: createOrderDto.state,
       postalCode: createOrderDto.postalCode,
       country: createOrderDto.country,
-      subtotal: Math.round(subtotal * 100) / 100, // Round to 2 decimal places
+      subtotal: roundedSubtotal, // Round to 2 decimal places
       status: 'pending',
       items: createOrderDto.items.map((item) =>
         this.orderItemRepository.create({
@@ -49,13 +64,28 @@ export class OrdersService {
       ),
     });
 
-    // Save order with cascade to items
-    const savedOrder = await this.orderRepository.save(order);
+    try {
+      // Save order with cascade to items
+      const savedOrder = await this.orderRepository.save(order);
 
-    // Reset cart so next checkout starts from the mock products again
-    this.cartService.resetCartItems();
+      this.logger.logWithData(
+        `Order created successfully: orderId=${orderId}`,
+        { orderId, status: savedOrder.status, subtotal: savedOrder.subtotal },
+        'OrdersService',
+      );
 
-    return savedOrder;
+      // Reset cart so next checkout starts from the mock products again
+      this.cartService.resetCartItems();
+
+      return savedOrder;
+    } catch (error) {
+      this.logger.error(
+        `Order creation failed: orderId=${orderId}, error=${error.message}`,
+        error.stack,
+        'OrdersService',
+      );
+      throw error;
+    }
   }
 
   findAll() {
@@ -63,10 +93,31 @@ export class OrdersService {
   }
 
   async findByOrderId(orderId: string): Promise<Order | null> {
-    return await this.orderRepository.findOne({
-      where: { orderId },
-      relations: ['items'],
-    });
+    try {
+      const order = await this.orderRepository.findOne({
+        where: { orderId },
+        relations: ['items'],
+      });
+
+      if (order) {
+        this.logger.logWithData(
+          `Order retrieved: orderId=${orderId}`,
+          { orderId, status: order.status, itemCount: order.items?.length || 0 },
+          'OrdersService',
+        );
+      } else {
+        this.logger.warn(`Order not found: orderId=${orderId}`, 'OrdersService');
+      }
+
+      return order;
+    } catch (error) {
+      this.logger.error(
+        `Order retrieval failed: orderId=${orderId}, error=${error.message}`,
+        error.stack,
+        'OrdersService',
+      );
+      throw error;
+    }
   }
 
   findOne(id: number) {

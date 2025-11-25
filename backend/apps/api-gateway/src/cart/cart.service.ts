@@ -3,6 +3,7 @@ import { CartResponseDto } from './dto/cart-response.dto';
 import { CartItemDto } from './dto/cart-item.dto';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
+import { AppLoggerService } from '../common/app-logger.service';
 
 @Injectable()
 export class CartService {
@@ -29,7 +30,7 @@ export class CartService {
     },
   ];
 
-  constructor() {
+  constructor(private readonly logger: AppLoggerService) {
     this.resetCartItems();
   }
 
@@ -42,11 +43,18 @@ export class CartService {
       };
       this.cartItems.set(product.id, item);
     });
+    this.logger.log('Cart reset: Initial products loaded', 'CartService');
   }
 
   getCart(): CartResponseDto {
     const items = Array.from(this.cartItems.values());
     const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
+
+    this.logger.logWithData(
+      `Cart retrieved: ${items.length} items, subtotal: $${Math.round(subtotal * 100) / 100}`,
+      { itemCount: items.length, subtotal: Math.round(subtotal * 100) / 100 },
+      'CartService',
+    );
 
     return {
       items,
@@ -62,8 +70,14 @@ export class CartService {
 
     if (existingItem) {
       // Update quantity if item exists
+      const oldQuantity = existingItem.quantity;
       existingItem.quantity += addItemDto.quantity;
       existingItem.lineTotal = existingItem.quantity * existingItem.unitPrice;
+      this.logger.logWithData(
+        `Item quantity updated: productId=${addItemDto.productId}, old quantity=${oldQuantity}, new quantity=${existingItem.quantity}`,
+        { productId: addItemDto.productId, oldQuantity, newQuantity: existingItem.quantity },
+        'CartService',
+      );
     } else {
       // Add new item
       const newItem: CartItemDto = {
@@ -74,6 +88,11 @@ export class CartService {
         lineTotal: addItemDto.quantity * addItemDto.unitPrice,
       };
       this.cartItems.set(addItemDto.productId, newItem);
+      this.logger.logWithData(
+        `Item added: productId=${addItemDto.productId}, productName=${addItemDto.productName}, quantity=${addItemDto.quantity}`,
+        { productId: addItemDto.productId, productName: addItemDto.productName, quantity: addItemDto.quantity },
+        'CartService',
+      );
     }
 
     return this.getCart();
@@ -83,16 +102,33 @@ export class CartService {
     const item = this.cartItems.get(itemId);
     
     if (!item) {
+      this.logger.error(
+        `Cart item update failed: itemId=${itemId} not found`,
+        undefined,
+        'CartService',
+      );
       throw new NotFoundException(`Cart item with ID ${itemId} not found`);
     }
+
+    const oldQuantity = item.quantity;
 
     if (updateItemDto.quantity <= 0) {
       // Remove item if quantity is 0 or less
       this.cartItems.delete(itemId);
+      this.logger.logWithData(
+        `Item removed via update: productId=${itemId}, old quantity=${oldQuantity}`,
+        { productId: itemId, oldQuantity },
+        'CartService',
+      );
     } else {
       // Update quantity
       item.quantity = updateItemDto.quantity;
       item.lineTotal = item.quantity * item.unitPrice;
+      this.logger.logWithData(
+        `Item updated: productId=${itemId}, old quantity=${oldQuantity}, new quantity=${item.quantity}`,
+        { productId: itemId, oldQuantity, newQuantity: item.quantity },
+        'CartService',
+      );
     }
 
     return this.getCart();
@@ -102,10 +138,20 @@ export class CartService {
     const item = this.cartItems.get(itemId);
     
     if (!item) {
+      this.logger.error(
+        `Cart item removal failed: itemId=${itemId} not found`,
+        undefined,
+        'CartService',
+      );
       throw new NotFoundException(`Cart item with ID ${itemId} not found`);
     }
 
     this.cartItems.delete(itemId);
+    this.logger.logWithData(
+      `Item removed: productId=${itemId}, productName=${item.productName}`,
+      { productId: itemId, productName: item.productName },
+      'CartService',
+    );
     return this.getCart();
   }
 }
