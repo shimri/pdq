@@ -5,6 +5,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { Order } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
+import { CartService } from '../cart/cart.service';
 
 @Injectable()
 export class OrdersService {
@@ -13,6 +14,7 @@ export class OrdersService {
     private orderRepository: Repository<Order>,
     @InjectRepository(OrderItem)
     private orderItemRepository: Repository<OrderItem>,
+    private readonly cartService: CartService,
   ) {}
 
   async create(createOrderDto: CreateOrderDto): Promise<Order> {
@@ -48,7 +50,12 @@ export class OrdersService {
     });
 
     // Save order with cascade to items
-    return await this.orderRepository.save(order);
+    const savedOrder = await this.orderRepository.save(order);
+
+    // Reset cart so next checkout starts from the mock products again
+    this.cartService.resetCartItems();
+
+    return savedOrder;
   }
 
   findAll() {

@@ -8,30 +8,34 @@ import { UpdateCartItemDto } from './dto/update-cart-item.dto';
 export class CartService {
   private cartItems: Map<string, CartItemDto> = new Map();
 
-  constructor() {
-    // Initialize with some mock data
-    const mockProducts: Omit<CartItemDto, 'lineTotal'>[] = [
-      {
-        id: '1',
-        productName: 'Wireless Mouse',
-        quantity: 2,
-        unitPrice: 29.99,
-      },
-      {
-        id: '2',
-        productName: 'Mechanical Keyboard',
-        quantity: 1,
-        unitPrice: 129.99,
-      },
-      {
-        id: '3',
-        productName: 'USB-C Hub',
-        quantity: 1,
-        unitPrice: 49.99,
-      },
-    ];
+  private readonly initialProducts: Omit<CartItemDto, 'lineTotal'>[] = [
+    {
+      id: '1',
+      productName: 'Wireless Mouse',
+      quantity: 2,
+      unitPrice: 29.99,
+    },
+    {
+      id: '2',
+      productName: 'Mechanical Keyboard',
+      quantity: 1,
+      unitPrice: 129.99,
+    },
+    {
+      id: '3',
+      productName: 'USB-C Hub',
+      quantity: 1,
+      unitPrice: 49.99,
+    },
+  ];
 
-    mockProducts.forEach((product) => {
+  constructor() {
+    this.resetCartItems();
+  }
+
+  resetCartItems(): void {
+    this.cartItems.clear();
+    this.initialProducts.forEach((product) => {
       const item: CartItemDto = {
         ...product,
         lineTotal: product.quantity * product.unitPrice,
