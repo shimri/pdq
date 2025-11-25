@@ -8,6 +8,7 @@ import { Order } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { CartService } from '../cart/cart.service';
 import { AppLoggerService } from '../common/app-logger.service';
+import { GeocodingService } from './geocoding.service';
 
 @Injectable()
 export class OrdersService {
@@ -18,6 +19,7 @@ export class OrdersService {
     private orderItemRepository: Repository<OrderItem>,
     private readonly cartService: CartService,
     private readonly logger: AppLoggerService,
+    private readonly geocodingService: GeocodingService,
   ) {}
 
   async create(createOrderDto: CreateOrderDto): Promise<Order> {
@@ -43,6 +45,15 @@ export class OrdersService {
       'OrdersService',
     );
 
+    // Geocode the address
+    const geocodingResult = await this.geocodingService.geocodeAddress(
+      createOrderDto.streetAddress,
+      createOrderDto.city,
+      createOrderDto.state,
+      createOrderDto.postalCode,
+      createOrderDto.country,
+    );
+
     // Create Order entity with items
     const order = this.orderRepository.create({
       orderId,
@@ -52,6 +63,9 @@ export class OrdersService {
       state: createOrderDto.state,
       postalCode: createOrderDto.postalCode,
       country: createOrderDto.country,
+      latitude: geocodingResult?.latitude ?? null,
+      longitude: geocodingResult?.longitude ?? null,
+      formattedAddress: geocodingResult?.formattedAddress ?? null,
       subtotal: roundedSubtotal, // Round to 2 decimal places
       status: 'pending',
       items: createOrderDto.items.map((item) =>
