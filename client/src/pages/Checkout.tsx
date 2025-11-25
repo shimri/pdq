@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { fetchCart, updateCartItem, removeCartItem, type CartResponse } from '../services/cartApi';
@@ -10,9 +10,16 @@ const Checkout = () => {
   const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set());
   const [itemErrors, setItemErrors] = useState<Map<string, string>>(new Map());
   const [quantityInputs, setQuantityInputs] = useState<Map<string, string>>(new Map());
+  const loadingRef = useRef(false);
 
   const loadCart = async () => {
+    // Prevent duplicate calls
+    if (loadingRef.current) {
+      return;
+    }
+
     try {
+      loadingRef.current = true;
       setLoading(true);
       setItemErrors(new Map());
       const cartData = await fetchCart();
@@ -28,6 +35,7 @@ const Checkout = () => {
       toast.error(errorMessage);
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
   };
 
