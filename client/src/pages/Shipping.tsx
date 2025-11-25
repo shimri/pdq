@@ -59,9 +59,16 @@ const Shipping = () => {
   };
 
   const validatePostalCode = (value: string): string | null => {
-    const postalCodeRegex = /^[A-Za-z0-9\s-]{5,10}$/;
+    // Only allow numeric characters
+    const postalCodeRegex = /^\d+$/;
     if (!postalCodeRegex.test(value)) {
-      return 'Postal code must be alphanumeric and between 5-10 characters';
+      return 'Postal code must contain only numbers';
+    }
+    if (value.length < 5 || value.length > 10) {
+      return 'Postal code must be between 5-10 digits';
+    }
+    if (value.length > 20) {
+      return 'Postal code must not exceed 20 characters';
     }
     return null;
   };
@@ -71,8 +78,24 @@ const Shipping = () => {
       return `${name === 'fullName' ? 'Full name' : name.charAt(0).toUpperCase() + name.slice(1).replace(/([A-Z])/g, ' $1')} is required`;
     }
 
+    // Character length validations matching backend constraints
+    if (name === 'fullName' && value.length > 100) {
+      return 'Full name must not exceed 100 characters';
+    }
+    if (name === 'streetAddress' && value.length > 200) {
+      return 'Street address must not exceed 200 characters';
+    }
+    if (name === 'city' && value.length > 100) {
+      return 'City must not exceed 100 characters';
+    }
+    if (name === 'state' && value.length > 50) {
+      return 'State must not exceed 50 characters';
+    }
     if (name === 'postalCode') {
       return validatePostalCode(value);
+    }
+    if (name === 'country' && value.length > 100) {
+      return 'Country must not exceed 100 characters';
     }
 
     return null;
@@ -80,10 +103,23 @@ const Shipping = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    
+    // For postal code, only allow numeric input
+    let processedValue = value;
+    if (name === 'postalCode') {
+      // Remove any non-numeric characters
+      processedValue = value.replace(/\D/g, '');
+    }
+    
+    // Update form data
+    setFormData((prev) => ({ ...prev, [name]: processedValue }));
 
-    // Clear error when user starts typing
-    if (errors[name as keyof FormErrors]) {
+    // Validate immediately to show errors in real-time when limit is reached or exceeded
+    const error = validateField(name as keyof ShippingFormData, processedValue);
+    if (error) {
+      setErrors((prev) => ({ ...prev, [name]: error }));
+    } else {
+      // Clear error if validation passes
       setErrors((prev) => {
         const next = { ...prev };
         delete next[name as keyof FormErrors];
@@ -92,19 +128,67 @@ const Shipping = () => {
     }
   };
 
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const target = e.currentTarget;
+    const name = target.name;
+    let pastedText = e.clipboardData.getData('text');
+    
+    // For postal code, filter out non-numeric characters
+    if (name === 'postalCode') {
+      pastedText = pastedText.replace(/\D/g, '');
+    }
+    
+    // Get max length for the field
+    const maxLengths: Record<string, number> = {
+      fullName: 100,
+      streetAddress: 200,
+      city: 100,
+      state: 50,
+      postalCode: 20,
+      country: 100,
+    };
+    
+    const maxLength = maxLengths[name];
+    
+    if (!maxLength) return;
+    
+    // Check if pasted content would exceed the limit
+    const currentValue = formData[name as keyof ShippingFormData];
+    const selectionStart = target.selectionStart || 0;
+    const selectionEnd = target.selectionEnd || 0;
+    const newValue = currentValue.slice(0, selectionStart) + 
+                     pastedText + 
+                     currentValue.slice(selectionEnd);
+    
+    if (newValue.length > maxLength) {
+      // Show error immediately (red styling will be applied)
+      const error = validateField(name as keyof ShippingFormData, newValue);
+      if (error) {
+        setErrors((prev) => ({ ...prev, [name]: error }));
+      }
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // For postal code, only allow numeric keys
+    if (e.currentTarget.name === 'postalCode') {
+      const char = String.fromCharCode(e.which || e.keyCode);
+      if (!/[0-9]/.test(char)) {
+        e.preventDefault();
+      }
+    }
+  };
+
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
 
+    // Validate on blur - set error if invalid, but don't clear existing errors
+    // Errors will only be cleared when user fixes them (in handleInputChange)
     const error = validateField(name as keyof ShippingFormData, value);
     if (error) {
       setErrors((prev) => ({ ...prev, [name]: error }));
-    } else {
-      setErrors((prev) => {
-        const next = { ...prev };
-        delete next[name as keyof FormErrors];
-        return next;
-      });
     }
+    // Don't clear errors on blur - let them persist until user fixes the issue
   };
 
   const validateForm = (): boolean => {
@@ -193,7 +277,7 @@ const Shipping = () => {
             <div className="space-y-6">
               {/* Full Name */}
               <div>
-                <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1 text-left">
                   Full Name <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -203,8 +287,12 @@ const Shipping = () => {
                   value={formData.fullName}
                   onChange={handleInputChange}
                   onBlur={handleBlur}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.fullName ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                  onPaste={handlePaste}
+                  maxLength={100}
+                  className={`w-full px-3 py-2 border-2 rounded-lg focus:outline-none ${
+                    errors.fullName 
+                      ? 'border-red-500 bg-red-50 text-red-900 placeholder-red-300 focus:ring-2 focus:ring-red-500 focus:border-red-500' 
+                      : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
                   }`}
                   placeholder="John Doe"
                 />
@@ -217,7 +305,7 @@ const Shipping = () => {
 
               {/* Street Address */}
               <div>
-                <label htmlFor="streetAddress" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="streetAddress" className="block text-sm font-medium text-gray-700 mb-1 text-left">
                   Street Address <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -227,8 +315,12 @@ const Shipping = () => {
                   value={formData.streetAddress}
                   onChange={handleInputChange}
                   onBlur={handleBlur}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.streetAddress ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                  onPaste={handlePaste}
+                  maxLength={200}
+                  className={`w-full px-3 py-2 border-2 rounded-lg focus:outline-none ${
+                    errors.streetAddress 
+                      ? 'border-red-500 bg-red-50 text-red-900 placeholder-red-300 focus:ring-2 focus:ring-red-500 focus:border-red-500' 
+                      : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
                   }`}
                   placeholder="123 Main St"
                 />
@@ -241,7 +333,7 @@ const Shipping = () => {
 
               {/* City */}
               <div>
-                <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1 text-left">
                   City <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -251,8 +343,12 @@ const Shipping = () => {
                   value={formData.city}
                   onChange={handleInputChange}
                   onBlur={handleBlur}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.city ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                  onPaste={handlePaste}
+                  maxLength={100}
+                  className={`w-full px-3 py-2 border-2 rounded-lg focus:outline-none ${
+                    errors.city 
+                      ? 'border-red-500 bg-red-50 text-red-900 placeholder-red-300 focus:ring-2 focus:ring-red-500 focus:border-red-500' 
+                      : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
                   }`}
                   placeholder="New York"
                 />
@@ -265,7 +361,7 @@ const Shipping = () => {
 
               {/* State */}
               <div>
-                <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-1 text-left">
                   State/Province <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -275,8 +371,12 @@ const Shipping = () => {
                   value={formData.state}
                   onChange={handleInputChange}
                   onBlur={handleBlur}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.state ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                  onPaste={handlePaste}
+                  maxLength={50}
+                  className={`w-full px-3 py-2 border-2 rounded-lg focus:outline-none ${
+                    errors.state 
+                      ? 'border-red-500 bg-red-50 text-red-900 placeholder-red-300 focus:ring-2 focus:ring-red-500 focus:border-red-500' 
+                      : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
                   }`}
                   placeholder="NY"
                 />
@@ -289,20 +389,27 @@ const Shipping = () => {
 
               {/* Postal Code */}
               <div>
-                <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-1 text-left">
                   Postal Code <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   id="postalCode"
                   name="postalCode"
                   value={formData.postalCode}
                   onChange={handleInputChange}
+                  onKeyPress={handleKeyPress}
                   onBlur={handleBlur}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.postalCode ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                  onPaste={handlePaste}
+                  maxLength={20}
+                  className={`w-full px-3 py-2 border-2 rounded-lg focus:outline-none ${
+                    errors.postalCode 
+                      ? 'border-red-500 bg-red-50 text-red-900 placeholder-red-300 focus:ring-2 focus:ring-red-500 focus:border-red-500' 
+                      : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
                   }`}
-                  placeholder="10001"
+                  placeholder="12345"
                 />
                 {errors.postalCode && (
                   <p className="mt-1 text-sm text-red-600" role="alert">
@@ -313,7 +420,7 @@ const Shipping = () => {
 
               {/* Country */}
               <div>
-                <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-1 text-left">
                   Country <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -323,8 +430,12 @@ const Shipping = () => {
                   value={formData.country}
                   onChange={handleInputChange}
                   onBlur={handleBlur}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.country ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                  onPaste={handlePaste}
+                  maxLength={100}
+                  className={`w-full px-3 py-2 border-2 rounded-lg focus:outline-none ${
+                    errors.country 
+                      ? 'border-red-500 bg-red-50 text-red-900 placeholder-red-300 focus:ring-2 focus:ring-red-500 focus:border-red-500' 
+                      : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
                   }`}
                   placeholder="United States"
                 />

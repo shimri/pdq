@@ -6,25 +6,25 @@ export class Order {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ unique: true, length: 100 })
+  @Column('varchar', { unique: true, length: 100 })
   orderId: string;
 
-  @Column({ length: 100 })
+  @Column('varchar', { length: 100 })
   customerName: string;
 
-  @Column({ length: 200 })
+  @Column('varchar', { length: 200 })
   streetAddress: string;
 
-  @Column({ length: 100 })
+  @Column('varchar', { length: 100 })
   city: string;
 
-  @Column({ length: 50 })
+  @Column('varchar', { length: 50 })
   state: string;
 
-  @Column({ length: 20 })
+  @Column('varchar', { length: 20 })
   postalCode: string;
 
-  @Column({ length: 100 })
+  @Column('varchar', { length: 100 })
   country: string;
 
   @Column('decimal', { precision: 10, scale: 8, nullable: true })
@@ -39,7 +39,7 @@ export class Order {
   @Column('decimal', { precision: 10, scale: 2 })
   subtotal: number;
 
-  @Column({ length: 50 })
+  @Column('varchar', { length: 50 })
   status: string;
 
   @CreateDateColumn()
