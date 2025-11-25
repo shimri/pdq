@@ -1,7 +1,9 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, OneToMany } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, OneToMany, Index } from 'typeorm';
 import { OrderItem } from './order-item.entity';
 
 @Entity('orders')
+@Index('IDX_orders_status_createdAt', ['status', 'createdAt'])
+@Index('IDX_orders_createdAt_status', ['createdAt', 'status'])
 export class Order {
   @PrimaryGeneratedColumn()
   id: number;
@@ -39,9 +41,11 @@ export class Order {
   @Column('decimal', { precision: 10, scale: 2 })
   subtotal: number;
 
+  @Index('IDX_orders_status')
   @Column('varchar', { length: 50 })
   status: string;
 
+  @Index('IDX_orders_createdAt')
   @CreateDateColumn()
   createdAt: Date;
 
