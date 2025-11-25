@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ProcessPaymentDto } from './dto/process-payment.dto';
 import { AppLoggerService } from '../common/app-logger.service';
 
@@ -23,7 +23,8 @@ export class PaymentService {
    * Mock payment gateway processing
    * Simulates payment processing with failure scenarios:
    * - Fails if card number starts with "4" (simulating declined card)
-   * - Random 10% failure rate for other cards
+   * - Throws exception if card number starts with "9" (simulating service unavailable)
+   * - Random 1% failure rate for other cards
    */
   async processPayment(paymentDto: ProcessPaymentDto): Promise<PaymentResult> {
     const maskedCard = this.maskCardNumber(paymentDto.cardNumber);
@@ -42,6 +43,16 @@ export class PaymentService {
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     const cardNumber = paymentDto.cardNumber.replace(/\s/g, '');
+
+    // Simulate service unavailable (card number starting with "9")
+    if (cardNumber.startsWith('9')) {
+      this.logger.logWithData(
+        `Payment service unavailable: card ending ${maskedCard.slice(-4)}, reason=service unavailable`,
+        { cardLast4: maskedCard.slice(-4) },
+        'PaymentService',
+      );
+      throw new ServiceUnavailableException('Payment service is temporarily unavailable');
+    }
 
     // Simulate declined card (card number starting with "4")
     if (cardNumber.startsWith('4')) {

@@ -26,6 +26,17 @@ export const processPayment = async (
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
+    
+    // Handle 503 Service Unavailable specifically
+    if (response.status === 503) {
+      const error = new Error(
+        errorData.message || 'Payment service is temporarily unavailable'
+      );
+      (error as any).status = 503;
+      (error as any).isServiceUnavailable = true;
+      throw error;
+    }
+    
     throw new Error(
       errorData.message || `Payment processing failed: ${response.statusText}`
     );

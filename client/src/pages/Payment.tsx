@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { fetchCart, type CartResponse } from '../services/cartApi';
-import { processPayment } from '../services/paymentApi';
+import { processPayment, type PaymentResult } from '../services/paymentApi';
 import { createOrder, updateOrderStatus } from '../services/orderApi';
 
 interface PaymentFormData {
@@ -253,14 +253,42 @@ const Payment = () => {
 
       // Process payment
       const cardNumberDigits = formData.cardNumber.replace(/\s/g, '');
-      const paymentResult = await processPayment({
-        cardNumber: cardNumberDigits,
-        expiry: formData.expiry,
-        cvv: formData.cvv,
-        cardholderName: formData.cardholderName,
-      });
+      let paymentResult: PaymentResult | null = null;
+      let paymentServiceUnavailable = false;
 
-      if (!paymentResult.success) {
+      try {
+        paymentResult = await processPayment({
+          cardNumber: cardNumberDigits,
+          expiry: formData.expiry,
+          cvv: formData.cvv,
+          cardholderName: formData.cardholderName,
+        });
+      } catch (err) {
+        // Check if it's a service unavailable error (503)
+        if (err instanceof Error && (err as any).isServiceUnavailable) {
+          paymentServiceUnavailable = true;
+        } else {
+          // Re-throw other payment errors
+          throw err;
+        }
+      }
+
+      // If payment service is unavailable, create order anyway with pending status
+      if (paymentServiceUnavailable) {
+        const order = await createOrder(shippingAddress, cart.items);
+        // Order is created with 'pending' status by default
+        
+        const message = "Payment service is temporarily unavailable. Your order is saved — we'll notify you once payment succeeds.";
+        setPaymentError(message);
+        toast.success(message, { duration: 6000 });
+        
+        // Navigate to confirmation page even though payment failed
+        navigate(`/confirmation/${order.orderId}`);
+        return;
+      }
+
+      // If payment failed (declined, etc.), don't create order
+      if (paymentResult && !paymentResult.success) {
         setPaymentError(paymentResult.message || 'Payment failed');
         toast.error(paymentResult.message || 'Payment failed');
         return;
