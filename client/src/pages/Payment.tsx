@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { fetchCart, type CartResponse } from '../services/cartApi';
 import { processPayment } from '../services/paymentApi';
-import { createOrder } from '../services/orderApi';
+import { createOrder, updateOrderStatus } from '../services/orderApi';
 
 interface PaymentFormData {
   cardNumber: string;
@@ -226,6 +226,11 @@ const Payment = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (submitting) {
+      // Guard against rapid repeat submissions that could double-charge/order
+      return;
+    }
+
     if (!validateForm()) {
       toast.error('Please fix the errors in the form');
       return;
@@ -263,6 +268,15 @@ const Payment = () => {
 
       // Payment successful - create order
       const order = await createOrder(shippingAddress, cart.items);
+      
+      // Update order status to 'completed' after successful payment
+      try {
+        await updateOrderStatus(order.orderId, 'completed');
+      } catch (statusError) {
+        // Log error but don't block navigation - order is already created
+        console.error('Failed to update order status:', statusError);
+        // Order is still created, so we continue with navigation
+      }
       
       toast.success('Order placed successfully!');
       navigate(`/confirmation/${order.orderId}`);

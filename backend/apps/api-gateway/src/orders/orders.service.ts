@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { Order } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { CartService } from '../cart/cart.service';
@@ -130,5 +131,39 @@ export class OrdersService {
 
   remove(id: number) {
     return `This action removes a #${id} order`;
+  }
+
+  async updateOrderStatus(orderId: string, status: string): Promise<Order> {
+    try {
+      const order = await this.orderRepository.findOne({
+        where: { orderId },
+        relations: ['items'],
+      });
+
+      if (!order) {
+        this.logger.warn(`Order not found for status update: orderId=${orderId}`, 'OrdersService');
+        throw new Error(`Order with orderId ${orderId} not found`);
+      }
+
+      const previousStatus = order.status;
+      order.status = status;
+
+      const updatedOrder = await this.orderRepository.save(order);
+
+      this.logger.logWithData(
+        `Order status updated: orderId=${orderId}, ${previousStatus} -> ${status}`,
+        { orderId, previousStatus, newStatus: status },
+        'OrdersService',
+      );
+
+      return updatedOrder;
+    } catch (error) {
+      this.logger.error(
+        `Order status update failed: orderId=${orderId}, error=${error.message}`,
+        error.stack,
+        'OrdersService',
+      );
+      throw error;
+    }
   }
 }

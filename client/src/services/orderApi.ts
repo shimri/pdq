@@ -95,3 +95,25 @@ export const getOrderByOrderId = async (orderId: string): Promise<OrderResponse>
   return response.json();
 };
 
+export const updateOrderStatus = async (
+  orderId: string,
+  status: string
+): Promise<OrderResponse> => {
+  const response = await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ status }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.message || `Failed to update order status: ${response.statusText}`
+    );
+  }
+
+  return response.json();
+};
+
