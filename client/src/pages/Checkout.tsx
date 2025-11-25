@@ -333,10 +333,10 @@ const Checkout = () => {
                         </div>
                       </td>
                       <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500 hidden sm:table-cell">
-                        ${item.unitPrice.toFixed(2)}
+                        ${Number(item.unitPrice).toFixed(2)}
                       </td>
                       <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900">
-                        ${item.lineTotal.toFixed(2)}
+                        ${Number(item.lineTotal).toFixed(2)}
                       </td>
                       <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-right">
                         <button
@@ -366,7 +366,7 @@ const Checkout = () => {
             <div className="flex justify-between items-center mb-4">
               <span className="text-lg font-semibold text-gray-900">Subtotal:</span>
               <span className="text-xl font-bold text-gray-900">
-                ${cart.subtotal.toFixed(2)}
+                ${Number(cart.subtotal).toFixed(2)}
               </span>
             </div>
             <div className="flex justify-end">

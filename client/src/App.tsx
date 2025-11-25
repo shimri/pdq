@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import Checkout from './pages/Checkout'
 import Shipping from './pages/Shipping'
+import Payment from './pages/Payment'
+import Confirmation from './pages/Confirmation'
 import './App.css'
 
 function App() {
@@ -10,6 +12,8 @@ function App() {
       <Routes>
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/shipping" element={<Shipping />} />
+        <Route path="/payment" element={<Payment />} />
+        <Route path="/confirmation/:orderId" element={<Confirmation />} />
         <Route path="/" element={<Navigate to="/checkout" replace />} />
       </Routes>
       <Toaster 

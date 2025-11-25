@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { fetchCart, type CartResponse } from '../services/cartApi';
-import { createOrder } from '../services/orderApi';
 
 interface ShippingFormData {
   fullName: string;
@@ -26,7 +25,6 @@ const Shipping = () => {
   const navigate = useNavigate();
   const [cart, setCart] = useState<CartResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState<ShippingFormData>({
     fullName: '',
     streetAddress: '',
@@ -126,7 +124,7 @@ const Shipping = () => {
     return isValid;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) {
@@ -139,10 +137,10 @@ const Shipping = () => {
       return;
     }
 
-    try {
-      setSubmitting(true);
-      await createOrder(
-        {
+    // Navigate to payment page with shipping data
+    navigate('/payment', {
+      state: {
+        shippingAddress: {
           customerName: formData.fullName,
           streetAddress: formData.streetAddress,
           city: formData.city,
@@ -150,19 +148,8 @@ const Shipping = () => {
           postalCode: formData.postalCode,
           country: formData.country,
         },
-        cart.items
-      );
-
-      toast.success('Order placed successfully!');
-      setTimeout(() => {
-        navigate('/checkout');
-      }, 2000);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to place order';
-      toast.error(errorMessage);
-    } finally {
-      setSubmitting(false);
-    }
+      },
+    });
   };
 
   if (loading) {
@@ -359,17 +346,9 @@ const Shipping = () => {
               </button>
               <button
                 type="submit"
-                disabled={submitting}
-                className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-md"
               >
-                {submitting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                    <span>Placing Order...</span>
-                  </>
-                ) : (
-                  'Place Order'
-                )}
+                Continue to Payment
               </button>
             </div>
           </form>

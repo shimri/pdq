@@ -77,3 +77,21 @@ export const createOrder = async (
   return response.json();
 };
 
+export const getOrderByOrderId = async (orderId: string): Promise<OrderResponse> => {
+  const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.message || `Failed to fetch order: ${response.statusText}`
+    );
+  }
+
+  return response.json();
+};
+
