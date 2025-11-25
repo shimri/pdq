@@ -11,6 +11,8 @@ export class OrdersService {
   constructor(
     @InjectRepository(Order)
     private orderRepository: Repository<Order>,
+    @InjectRepository(OrderItem)
+    private orderItemRepository: Repository<OrderItem>,
   ) {}
 
   async create(createOrderDto: CreateOrderDto): Promise<Order> {
@@ -23,7 +25,7 @@ export class OrdersService {
       0,
     );
 
-    // Create Order entity
+    // Create Order entity with items
     const order = this.orderRepository.create({
       orderId,
       customerName: createOrderDto.customerName,
@@ -35,7 +37,7 @@ export class OrdersService {
       subtotal: Math.round(subtotal * 100) / 100, // Round to 2 decimal places
       status: 'pending',
       items: createOrderDto.items.map((item) =>
-        this.orderRepository.manager.create(OrderItem, {
+        this.orderItemRepository.create({
           orderId,
           productName: item.productName,
           quantity: item.quantity,
@@ -51,6 +53,13 @@ export class OrdersService {
 
   findAll() {
     return `This action returns all orders`;
+  }
+
+  async findByOrderId(orderId: string): Promise<Order | null> {
+    return await this.orderRepository.findOne({
+      where: { orderId },
+      relations: ['items'],
+    });
   }
 
   findOne(id: number) {

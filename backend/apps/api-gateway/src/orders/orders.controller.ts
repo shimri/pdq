@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, NotFoundException } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
@@ -17,9 +17,13 @@ export class OrdersController {
     return this.ordersService.findAll();
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.ordersService.findOne(+id);
+  @Get(':orderId')
+  async findOne(@Param('orderId') orderId: string) {
+    const order = await this.ordersService.findByOrderId(orderId);
+    if (!order) {
+      throw new NotFoundException(`Order with orderId ${orderId} not found`);
+    }
+    return order;
   }
 
   @Patch(':id')

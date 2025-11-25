@@ -6,6 +6,7 @@ import { ApiGatewayService } from './api-gateway.service';
 import { DatabaseModule } from './database/database.module';
 import { OrdersModule } from './orders/orders.module';
 import { CartModule } from './cart/cart.module';
+import { PaymentModule } from './payment/payment.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { CartModule } from './cart/cart.module';
     DatabaseModule,
     OrdersModule,
     CartModule,
+    PaymentModule,
   ],
   controllers: [ApiGatewayController],
   providers: [ApiGatewayService],
